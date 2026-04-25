@@ -1,0 +1,19 @@
+{
+  "name": "terminal-mcp",
+  "version": "1.1.0",
+  "description": "A lightweight MCP server that exposes a remote terminal (bash) over HTTP, with optional QR code page and file serving.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": ["mcp", "terminal", "remote", "claude", "model-context-protocol"],
+  "author": "Astra-97",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "express": "^5.2.1",
+    "zod": "^4.3.6"
+  }
+}
