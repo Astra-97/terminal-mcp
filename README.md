@@ -57,33 +57,90 @@ All config via environment variables (or `.env` file):
 | `/files/:name` | GET | Download a file |
 | `/qr` | GET | QR code display page |
 
-## Connect to Claude
-
-In Claude.ai MCP settings, add:
-
-```
-URL: https://your-server.example.com/mcp
-```
-
-You'll likely want to put this behind a reverse proxy (Cloudflare Tunnel, nginx, Caddy) with HTTPS.
-
 ## Exposing via Cloudflare Tunnel
 
-```bash
-cloudflared tunnel --url http://localhost:3001
-```
+The server listens on localhost only. Use a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to expose it over HTTPS without opening any ports.
 
-Or set up a persistent tunnel:
+### 1. Install cloudflared
 
 ```bash
-cloudflared tunnel create terminal
-cloudflared tunnel route dns terminal terminal.yourdomain.com
-cloudflared tunnel run terminal
+# Debian / Ubuntu
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
+  | sudo tee /usr/share/keyrings/cloudflare-main.gpg > /dev/null
+
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] \
+  https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" \
+  | sudo tee /etc/apt/sources.list.d/cloudflared.list
+
+sudo apt update && sudo apt install cloudflared -y
 ```
+
+### 2. Authenticate & create tunnel
+
+```bash
+cloudflared tunnel login          # opens browser, authorize your domain
+cloudflared tunnel create mytunnel
+```
+
+This generates a credentials JSON at `~/.cloudflared/<TUNNEL_ID>.json`.
+
+### 3. Configure the tunnel
+
+Create or edit `~/.cloudflared/config.yml`:
+
+```yaml
+tunnel: <TUNNEL_ID>
+credentials-file: /home/<user>/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  # Terminal MCP
+  - hostname: terminal.yourdomain.com
+    service: http://localhost:3001
+
+  # You can add more services on different subdomains:
+  # - hostname: other-service.yourdomain.com
+  #   service: http://localhost:XXXX
+
+  # Catch-all (required)
+  - service: http_status:404
+```
+
+### 4. Add DNS record
+
+```bash
+cloudflared tunnel route dns mytunnel terminal.yourdomain.com
+```
+
+### 5. Run as systemd service
+
+```bash
+sudo cloudflared service install
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared
+```
+
+Or run manually: `cloudflared tunnel run mytunnel`
+
+### 6. Verify
+
+```bash
+curl https://terminal.yourdomain.com/health
+# → {"status":"ok","version":"1.1.0"}
+```
+
+## Connect to Claude
+
+In Claude.ai → Settings → MCP, add your server:
+
+```
+URL: https://terminal.yourdomain.com/mcp
+```
+
+The tool `run_command` will appear in Claude's available tools.
 
 ## Security Notice
 
-⚠️ This server executes arbitrary bash commands. **Do not expose it to the public internet without authentication.** Use a Cloudflare Tunnel with access policies, or restrict access at the network level.
+⚠️ This server executes arbitrary bash commands. **Do not expose it to the public internet without authentication.** Use [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) policies to restrict who can reach the endpoint, or keep it behind a private network.
 
 ## License
 
